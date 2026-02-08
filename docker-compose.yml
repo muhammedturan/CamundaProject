@@ -19,6 +19,8 @@ services:
     environment:
       - ZEEBE_BROKER_EXPORTERS_ELASTICSEARCH_CLASSNAME=io.camunda.zeebe.exporter.ElasticsearchExporter
       - ZEEBE_BROKER_EXPORTERS_ELASTICSEARCH_ARGS_URL=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
@@ -44,6 +46,34 @@ services:
     depends_on:
       - zeebe
       - elasticsearch
+
+  customerservice:
+    build:
+      context: .
+      dockerfile: CustomerService/CustomerService.Api/Dockerfile
+    container_name: camundaproject-customerservice
+    ports:
+      - "5100:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CustomerServiceDb;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=true
+    depends_on:
+      - sqlserver
+
+  bpmservice:
+    build:
+      context: .
+      dockerfile: BpmService/Dockerfile
+    container_name: camundaproject-bpmservice
+    ports:
+      - "5200:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Zeebe__GatewayAddress=zeebe:26500
+      - Services__CustomerService=http://customerservice:8080
+    depends_on:
+      - zeebe
+      - customerservice
 
 volumes:
   sqlserver-data:
