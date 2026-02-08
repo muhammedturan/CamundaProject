@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_1"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <bpmn:process id="customer-kyc" name="Customer KYC Verification" isExecutable="true">
+
+    <!-- Start Event -->
+    <bpmn:startEvent id="start" name="KYC Baslat">
+      <bpmn:outgoing>flow_start_parallel</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <!-- Parallel Gateway: Split -->
+    <bpmn:parallelGateway id="gw_parallel_split" name="Paralel Kontroller">
+      <bpmn:incoming>flow_start_parallel</bpmn:incoming>
+      <bpmn:outgoing>flow_to_identity</bpmn:outgoing>
+      <bpmn:outgoing>flow_to_blacklist</bpmn:outgoing>
+      <bpmn:outgoing>flow_to_address</bpmn:outgoing>
+    </bpmn:parallelGateway>
+
+    <!-- Task 1: Verify Identity -->
+    <bpmn:serviceTask id="verify-identity" name="Kimlik Dogrulama">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/kyc/verify-identity" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_to_identity</bpmn:incoming>
+      <bpmn:outgoing>flow_identity_join</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Task 2: Check Blacklist -->
+    <bpmn:serviceTask id="check-blacklist" name="Kara Liste Kontrolu">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/kyc/check-blacklist" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_to_blacklist</bpmn:incoming>
+      <bpmn:outgoing>flow_blacklist_join</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Task 3: Verify Address -->
+    <bpmn:serviceTask id="verify-address" name="Adres Dogrulama">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/kyc/verify-address" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_to_address</bpmn:incoming>
+      <bpmn:outgoing>flow_address_join</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Parallel Gateway: Join -->
+    <bpmn:parallelGateway id="gw_parallel_join" name="Sonuclari Birleistir">
+      <bpmn:incoming>flow_identity_join</bpmn:incoming>
+      <bpmn:incoming>flow_blacklist_join</bpmn:incoming>
+      <bpmn:incoming>flow_address_join</bpmn:incoming>
+      <bpmn:outgoing>flow_join_evaluate</bpmn:outgoing>
+    </bpmn:parallelGateway>
+
+    <!-- Task 4: Evaluate KYC Result -->
+    <bpmn:serviceTask id="evaluate-kyc" name="KYC Sonucunu Degerlendir">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/kyc/evaluate" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_join_evaluate</bpmn:incoming>
+      <bpmn:outgoing>flow_evaluate_gw</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Gateway: KYC Passed? -->
+    <bpmn:exclusiveGateway id="gw_kyc_result" name="KYC Sonucu">
+      <bpmn:incoming>flow_evaluate_gw</bpmn:incoming>
+      <bpmn:outgoing>flow_kyc_passed</bpmn:outgoing>
+      <bpmn:outgoing>flow_kyc_failed</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Task 5: Activate Customer -->
+    <bpmn:serviceTask id="activate-customer" name="Musteriyi Aktifleistir">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/customers/activate" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_kyc_passed</bpmn:incoming>
+      <bpmn:outgoing>flow_activate_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Task 6: Reject & Notify -->
+    <bpmn:serviceTask id="reject-customer" name="Musteriyi Reddet">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/customers/reject" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_kyc_failed</bpmn:incoming>
+      <bpmn:outgoing>flow_reject_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- End: KYC Approved -->
+    <bpmn:endEvent id="end_approved" name="KYC Onaylandi">
+      <bpmn:incoming>flow_activate_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- End: KYC Rejected -->
+    <bpmn:endEvent id="end_rejected" name="KYC Reddedildi">
+      <bpmn:incoming>flow_reject_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- Sequence Flows -->
+    <bpmn:sequenceFlow id="flow_start_parallel" sourceRef="start" targetRef="gw_parallel_split" />
+    <bpmn:sequenceFlow id="flow_to_identity" sourceRef="gw_parallel_split" targetRef="verify-identity" />
+    <bpmn:sequenceFlow id="flow_to_blacklist" sourceRef="gw_parallel_split" targetRef="check-blacklist" />
+    <bpmn:sequenceFlow id="flow_to_address" sourceRef="gw_parallel_split" targetRef="verify-address" />
+    <bpmn:sequenceFlow id="flow_identity_join" sourceRef="verify-identity" targetRef="gw_parallel_join" />
+    <bpmn:sequenceFlow id="flow_blacklist_join" sourceRef="check-blacklist" targetRef="gw_parallel_join" />
+    <bpmn:sequenceFlow id="flow_address_join" sourceRef="verify-address" targetRef="gw_parallel_join" />
+    <bpmn:sequenceFlow id="flow_join_evaluate" sourceRef="gw_parallel_join" targetRef="evaluate-kyc" />
+    <bpmn:sequenceFlow id="flow_evaluate_gw" sourceRef="evaluate-kyc" targetRef="gw_kyc_result" />
+    <bpmn:sequenceFlow id="flow_kyc_passed" name="Onaylandi" sourceRef="gw_kyc_result" targetRef="activate-customer">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">= kycPassed = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_kyc_failed" name="Reddedildi" sourceRef="gw_kyc_result" targetRef="reject-customer">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">= kycPassed = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_activate_end" sourceRef="activate-customer" targetRef="end_approved" />
+    <bpmn:sequenceFlow id="flow_reject_end" sourceRef="reject-customer" targetRef="end_rejected" />
+
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="customer-kyc">
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="180" y="260" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="gw_split_di" bpmnElement="gw_parallel_split">
+        <dc:Bounds x="270" y="253" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="identity_di" bpmnElement="verify-identity">
+        <dc:Bounds x="380" y="108" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="blacklist_di" bpmnElement="check-blacklist">
+        <dc:Bounds x="380" y="238" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="address_di" bpmnElement="verify-address">
+        <dc:Bounds x="380" y="368" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="gw_join_di" bpmnElement="gw_parallel_join">
+        <dc:Bounds x="540" y="253" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="evaluate_di" bpmnElement="evaluate-kyc">
+        <dc:Bounds x="650" y="238" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="gw_result_di" bpmnElement="gw_kyc_result" isMarkerVisible="true">
+        <dc:Bounds x="810" y="253" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="activate_di" bpmnElement="activate-customer">
+        <dc:Bounds x="920" y="168" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="reject_di" bpmnElement="reject-customer">
+        <dc:Bounds x="920" y="318" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_approved_di" bpmnElement="end_approved">
+        <dc:Bounds x="1082" y="190" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_rejected_di" bpmnElement="end_rejected">
+        <dc:Bounds x="1082" y="340" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="flow1_di" bpmnElement="flow_start_parallel">
+        <di:waypoint x="216" y="278" />
+        <di:waypoint x="270" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow2_di" bpmnElement="flow_to_identity">
+        <di:waypoint x="295" y="253" />
+        <di:waypoint x="295" y="148" />
+        <di:waypoint x="380" y="148" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow3_di" bpmnElement="flow_to_blacklist">
+        <di:waypoint x="320" y="278" />
+        <di:waypoint x="380" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow4_di" bpmnElement="flow_to_address">
+        <di:waypoint x="295" y="303" />
+        <di:waypoint x="295" y="408" />
+        <di:waypoint x="380" y="408" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow5_di" bpmnElement="flow_identity_join">
+        <di:waypoint x="480" y="148" />
+        <di:waypoint x="565" y="148" />
+        <di:waypoint x="565" y="253" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow6_di" bpmnElement="flow_blacklist_join">
+        <di:waypoint x="480" y="278" />
+        <di:waypoint x="540" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow7_di" bpmnElement="flow_address_join">
+        <di:waypoint x="480" y="408" />
+        <di:waypoint x="565" y="408" />
+        <di:waypoint x="565" y="303" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow8_di" bpmnElement="flow_join_evaluate">
+        <di:waypoint x="590" y="278" />
+        <di:waypoint x="650" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow9_di" bpmnElement="flow_evaluate_gw">
+        <di:waypoint x="750" y="278" />
+        <di:waypoint x="810" y="278" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow10_di" bpmnElement="flow_kyc_passed">
+        <di:waypoint x="835" y="253" />
+        <di:waypoint x="835" y="208" />
+        <di:waypoint x="920" y="208" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow11_di" bpmnElement="flow_kyc_failed">
+        <di:waypoint x="835" y="303" />
+        <di:waypoint x="835" y="358" />
+        <di:waypoint x="920" y="358" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow12_di" bpmnElement="flow_activate_end">
+        <di:waypoint x="1020" y="208" />
+        <di:waypoint x="1082" y="208" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow13_di" bpmnElement="flow_reject_end">
+        <di:waypoint x="1020" y="358" />
+        <di:waypoint x="1082" y="358" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>

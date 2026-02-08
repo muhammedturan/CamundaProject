@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.43.1">
+  <bpmn:process id="customer-onboarding" name="Customer Onboarding" isExecutable="true">
+    <bpmn:startEvent id="start" name="Onboarding Baslat">
+      <bpmn:outgoing>flow_start_validate</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="validate-customer" name="Musteri Bilgilerini Dogrula">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/customers/validate" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_start_validate</bpmn:incoming>
+      <bpmn:outgoing>flow_validate_gw1</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="gw_valid" name="Gecerli mi?">
+      <bpmn:incoming>flow_validate_gw1</bpmn:incoming>
+      <bpmn:outgoing>flow_valid_yes</bpmn:outgoing>
+      <bpmn:outgoing>flow_valid_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="check-duplicate" name="Duplikasyon Kontrolu">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/customers/check-duplicate" />
+          <zeebe:header key="method" value="POST" />
+          <zeebe:header key="errorCode" value="DUPLICATE_CUSTOMER" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_valid_yes</bpmn:incoming>
+      <bpmn:outgoing>flow_dup_to_create</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:boundaryEvent id="boundary_duplicate" name="Duplike Musteri" attachedToRef="check-duplicate">
+      <bpmn:outgoing>flow_dup_to_end</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_boundary" errorRef="Error_13dqtmg" />
+    </bpmn:boundaryEvent>
+    <bpmn:endEvent id="end_invalid" name="Validasyon Basarisiz">
+      <bpmn:incoming>flow_valid_no</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="end_duplicate" name="Duplike Reddedildi">
+      <bpmn:incoming>flow_dup_to_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="create-customer" name="Musteri Olustur">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/customers" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_dup_to_create</bpmn:incoming>
+      <bpmn:outgoing>flow_create_notify</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="send-welcome" name="Hosgeldin Bildirimi Gonder">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/customers/send-notification" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_create_notify</bpmn:incoming>
+      <bpmn:outgoing>flow_notify_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="end_success" name="Onboarding Tamamlandi">
+      <bpmn:incoming>flow_notify_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_start_validate" sourceRef="start" targetRef="validate-customer" />
+    <bpmn:sequenceFlow id="flow_validate_gw1" sourceRef="validate-customer" targetRef="gw_valid" />
+    <bpmn:sequenceFlow id="flow_valid_yes" name="Evet" sourceRef="gw_valid" targetRef="check-duplicate">
+      <bpmn:conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="bpmn:tFormalExpression">= isValid = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_valid_no" name="Hayir" sourceRef="gw_valid" targetRef="end_invalid">
+      <bpmn:conditionExpression xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="bpmn:tFormalExpression">= isValid = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_dup_to_create" sourceRef="check-duplicate" targetRef="create-customer" />
+    <bpmn:sequenceFlow id="flow_dup_to_end" sourceRef="boundary_duplicate" targetRef="end_duplicate" />
+    <bpmn:sequenceFlow id="flow_create_notify" sourceRef="create-customer" targetRef="send-welcome" />
+    <bpmn:sequenceFlow id="flow_notify_end" sourceRef="send-welcome" targetRef="end_success" />
+  </bpmn:process>
+  <bpmn:error id="Error_13dqtmg" name="DUPLICATE_CUSTOMER" errorCode="DUPLICATE_CUSTOMER" />
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="customer-onboarding">
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="180" y="110" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="169" y="146" width="58" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="validate_di" bpmnElement="validate-customer">
+        <dc:Bounds x="270" y="88" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="gw_valid_di" bpmnElement="gw_valid" isMarkerVisible="true">
+        <dc:Bounds x="425" y="103" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="422" y="153" width="56" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="check_dup_di" bpmnElement="check-duplicate">
+        <dc:Bounds x="530" y="88" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="boundary_dup_di" bpmnElement="boundary_duplicate">
+        <dc:Bounds x="572" y="150" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="549" y="189" width="76" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_invalid_di" bpmnElement="end_invalid">
+        <dc:Bounds x="432" y="242" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="424" y="278" width="53" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_duplicate_di" bpmnElement="end_duplicate">
+        <dc:Bounds x="572" y="262" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="548" y="298" width="84" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="create_di" bpmnElement="create-customer">
+        <dc:Bounds x="690" y="88" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="notify_di" bpmnElement="send-welcome">
+        <dc:Bounds x="850" y="88" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_success_di" bpmnElement="end_success">
+        <dc:Bounds x="1010" y="110" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="998" y="146" width="60" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="flow1_di" bpmnElement="flow_start_validate">
+        <di:waypoint x="216" y="128" />
+        <di:waypoint x="270" y="128" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow2_di" bpmnElement="flow_validate_gw1">
+        <di:waypoint x="370" y="128" />
+        <di:waypoint x="425" y="128" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow3_di" bpmnElement="flow_valid_yes">
+        <di:waypoint x="475" y="128" />
+        <di:waypoint x="530" y="128" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="491" y="103" width="23" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow4_di" bpmnElement="flow_valid_no">
+        <di:waypoint x="450" y="153" />
+        <di:waypoint x="450" y="242" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="452" y="188" width="26" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow5_di" bpmnElement="flow_dup_to_create">
+        <di:waypoint x="630" y="128" />
+        <di:waypoint x="690" y="128" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow6_di" bpmnElement="flow_dup_to_end">
+        <di:waypoint x="590" y="186" />
+        <di:waypoint x="590" y="262" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow8_di" bpmnElement="flow_create_notify">
+        <di:waypoint x="790" y="128" />
+        <di:waypoint x="850" y="128" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow9_di" bpmnElement="flow_notify_end">
+        <di:waypoint x="950" y="128" />
+        <di:waypoint x="1010" y="128" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

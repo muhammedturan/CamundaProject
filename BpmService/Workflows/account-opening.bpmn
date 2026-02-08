@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_1"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <bpmn:process id="account-opening" name="Account Opening" isExecutable="true">
+
+    <!-- Start Event -->
+    <bpmn:startEvent id="start" name="Hesap Acma Talebi">
+      <bpmn:outgoing>flow_start_verify</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <!-- Task 1: Verify Customer Exists -->
+    <bpmn:serviceTask id="verify-customer" name="Musteri Dogrulama">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/accounts/verify-customer" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_start_verify</bpmn:incoming>
+      <bpmn:outgoing>flow_verify_gw</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Gateway: Customer Found? -->
+    <bpmn:exclusiveGateway id="gw_customer_found" name="Musteri Bulundu mu?">
+      <bpmn:incoming>flow_verify_gw</bpmn:incoming>
+      <bpmn:outgoing>flow_found_yes</bpmn:outgoing>
+      <bpmn:outgoing>flow_found_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Task 2: Check Account Limit -->
+    <bpmn:serviceTask id="check-account-limit" name="Hesap Limiti Kontrolu">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/accounts/check-limit" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_found_yes</bpmn:incoming>
+      <bpmn:outgoing>flow_limit_gw</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- End: Customer Not Found -->
+    <bpmn:endEvent id="end_not_found" name="Musteri Bulunamadi">
+      <bpmn:incoming>flow_found_no</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- Gateway: Within Limit? -->
+    <bpmn:exclusiveGateway id="gw_limit" name="Limit Uygun mu?">
+      <bpmn:incoming>flow_limit_gw</bpmn:incoming>
+      <bpmn:outgoing>flow_limit_ok</bpmn:outgoing>
+      <bpmn:outgoing>flow_limit_exceeded</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Task 3: Create Account -->
+    <bpmn:serviceTask id="create-account" name="Hesap Olustur">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/accounts" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_limit_ok</bpmn:incoming>
+      <bpmn:outgoing>flow_create_notify</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- End: Limit Exceeded -->
+    <bpmn:endEvent id="end_limit" name="Limit Asildi">
+      <bpmn:incoming>flow_limit_exceeded</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- Task 4: Send Account Notification -->
+    <bpmn:serviceTask id="send-account-notification" name="Hesap Bilgisi Gonder">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/accounts/send-notification" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_create_notify</bpmn:incoming>
+      <bpmn:outgoing>flow_notify_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- End: Success -->
+    <bpmn:endEvent id="end_success" name="Hesap Acildi">
+      <bpmn:incoming>flow_notify_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- Sequence Flows -->
+    <bpmn:sequenceFlow id="flow_start_verify" sourceRef="start" targetRef="verify-customer" />
+    <bpmn:sequenceFlow id="flow_verify_gw" sourceRef="verify-customer" targetRef="gw_customer_found" />
+    <bpmn:sequenceFlow id="flow_found_yes" name="Bulundu" sourceRef="gw_customer_found" targetRef="check-account-limit">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">= customerFound = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_found_no" name="Bulunamadi" sourceRef="gw_customer_found" targetRef="end_not_found">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">= customerFound = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_limit_gw" sourceRef="check-account-limit" targetRef="gw_limit" />
+    <bpmn:sequenceFlow id="flow_limit_ok" name="Uygun" sourceRef="gw_limit" targetRef="create-account">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">= withinLimit = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_limit_exceeded" name="Limit Asildi" sourceRef="gw_limit" targetRef="end_limit">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">= withinLimit = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_create_notify" sourceRef="create-account" targetRef="send-account-notification" />
+    <bpmn:sequenceFlow id="flow_notify_end" sourceRef="send-account-notification" targetRef="end_success" />
+
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="account-opening">
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="180" y="200" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="verify_di" bpmnElement="verify-customer">
+        <dc:Bounds x="270" y="178" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="gw_found_di" bpmnElement="gw_customer_found" isMarkerVisible="true">
+        <dc:Bounds x="425" y="193" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="check_limit_di" bpmnElement="check-account-limit">
+        <dc:Bounds x="530" y="178" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_notfound_di" bpmnElement="end_not_found">
+        <dc:Bounds x="432" y="332" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="gw_limit_di" bpmnElement="gw_limit" isMarkerVisible="true">
+        <dc:Bounds x="685" y="193" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="create_acc_di" bpmnElement="create-account">
+        <dc:Bounds x="790" y="178" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_limit_di" bpmnElement="end_limit">
+        <dc:Bounds x="692" y="332" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="notify_di" bpmnElement="send-account-notification">
+        <dc:Bounds x="950" y="178" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_success_di" bpmnElement="end_success">
+        <dc:Bounds x="1110" y="200" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="flow1_di" bpmnElement="flow_start_verify">
+        <di:waypoint x="216" y="218" />
+        <di:waypoint x="270" y="218" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow2_di" bpmnElement="flow_verify_gw">
+        <di:waypoint x="370" y="218" />
+        <di:waypoint x="425" y="218" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow3_di" bpmnElement="flow_found_yes">
+        <di:waypoint x="475" y="218" />
+        <di:waypoint x="530" y="218" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow4_di" bpmnElement="flow_found_no">
+        <di:waypoint x="450" y="243" />
+        <di:waypoint x="450" y="332" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow5_di" bpmnElement="flow_limit_gw">
+        <di:waypoint x="630" y="218" />
+        <di:waypoint x="685" y="218" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow6_di" bpmnElement="flow_limit_ok">
+        <di:waypoint x="735" y="218" />
+        <di:waypoint x="790" y="218" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow7_di" bpmnElement="flow_limit_exceeded">
+        <di:waypoint x="710" y="243" />
+        <di:waypoint x="710" y="332" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow8_di" bpmnElement="flow_create_notify">
+        <di:waypoint x="890" y="218" />
+        <di:waypoint x="950" y="218" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow9_di" bpmnElement="flow_notify_end">
+        <di:waypoint x="1050" y="218" />
+        <di:waypoint x="1110" y="218" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>

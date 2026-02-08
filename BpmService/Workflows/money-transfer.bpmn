@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_1"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <bpmn:process id="money-transfer" name="Money Transfer" isExecutable="true">
+
+    <bpmn:startEvent id="start" name="Transfer Baslat">
+      <bpmn:outgoing>flow_start_validate</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:serviceTask id="validate-transfer" name="Transfer Dogrula">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/transfers/validate" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_start_validate</bpmn:incoming>
+      <bpmn:outgoing>flow_validate_gw</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="gw_valid" name="Gecerli mi?">
+      <bpmn:incoming>flow_validate_gw</bpmn:incoming>
+      <bpmn:outgoing>flow_valid_yes</bpmn:outgoing>
+      <bpmn:outgoing>flow_valid_no</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:serviceTask id="execute-transfer" name="Transfer Gerceklestir">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/transfers/execute" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_valid_yes</bpmn:incoming>
+      <bpmn:outgoing>flow_execute_notify</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="send-transfer-notification" name="Transfer Bildirimi">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="dynamic-rest-handler" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="url" value="http://localhost:5100/api/transfers/send-notification" />
+          <zeebe:header key="method" value="POST" />
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow_execute_notify</bpmn:incoming>
+      <bpmn:outgoing>flow_notify_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:endEvent id="end_success" name="Transfer Basarili">
+      <bpmn:incoming>flow_notify_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="end_rejected" name="Transfer Reddedildi">
+      <bpmn:incoming>flow_valid_no</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="flow_start_validate" sourceRef="start" targetRef="validate-transfer" />
+    <bpmn:sequenceFlow id="flow_validate_gw" sourceRef="validate-transfer" targetRef="gw_valid" />
+    <bpmn:sequenceFlow id="flow_valid_yes" name="Evet" sourceRef="gw_valid" targetRef="execute-transfer">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">= isValid = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_valid_no" name="Hayir" sourceRef="gw_valid" targetRef="end_rejected">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">= isValid = false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_execute_notify" sourceRef="execute-transfer" targetRef="send-transfer-notification" />
+    <bpmn:sequenceFlow id="flow_notify_end" sourceRef="send-transfer-notification" targetRef="end_success" />
+
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="money-transfer">
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="180" y="160" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="validate_di" bpmnElement="validate-transfer">
+        <dc:Bounds x="270" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="gw_di" bpmnElement="gw_valid" isMarkerVisible="true">
+        <dc:Bounds x="425" y="153" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="execute_di" bpmnElement="execute-transfer">
+        <dc:Bounds x="530" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="notify_di" bpmnElement="send-transfer-notification">
+        <dc:Bounds x="690" y="138" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_success_di" bpmnElement="end_success">
+        <dc:Bounds x="852" y="160" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="end_rejected_di" bpmnElement="end_rejected">
+        <dc:Bounds x="432" y="282" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="flow1_di" bpmnElement="flow_start_validate">
+        <di:waypoint x="216" y="178" />
+        <di:waypoint x="270" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow2_di" bpmnElement="flow_validate_gw">
+        <di:waypoint x="370" y="178" />
+        <di:waypoint x="425" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow3_di" bpmnElement="flow_valid_yes">
+        <di:waypoint x="475" y="178" />
+        <di:waypoint x="530" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow4_di" bpmnElement="flow_valid_no">
+        <di:waypoint x="450" y="203" />
+        <di:waypoint x="450" y="282" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow5_di" bpmnElement="flow_execute_notify">
+        <di:waypoint x="630" y="178" />
+        <di:waypoint x="690" y="178" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow6_di" bpmnElement="flow_notify_end">
+        <di:waypoint x="790" y="178" />
+        <di:waypoint x="852" y="178" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>

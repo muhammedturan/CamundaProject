@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/CustomerService/">
+    <Project Path="CustomerService/CustomerService.Core/CustomerService.Core.csproj" />
+    <Project Path="CustomerService/CustomerService.Domain/CustomerService.Domain.csproj" />
+    <Project Path="CustomerService/CustomerService.Application/CustomerService.Application.csproj" />
+    <Project Path="CustomerService/CustomerService.Infrastructure/CustomerService.Infrastructure.csproj" />
+    <Project Path="CustomerService/CustomerService.Api/CustomerService.Api.csproj" />
+  </Folder>
+  <Folder Name="/BpmService/">
+    <Project Path="BpmService/BpmService.csproj" />
+  </Folder>
+</Solution>
