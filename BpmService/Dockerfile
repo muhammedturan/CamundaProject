@@ -9,7 +9,7 @@ COPY BpmService/BpmService.csproj BpmService/
 RUN dotnet restore BpmService/BpmService.csproj
 
 COPY BpmService/ BpmService/
-RUN dotnet publish BpmService/BpmService.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish BpmService/BpmService.csproj -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app

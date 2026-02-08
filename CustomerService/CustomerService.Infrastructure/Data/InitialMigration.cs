@@ -18,6 +18,7 @@ public static class InitialMigration
         await CreateCustomersTable(connection);
         await CreateAccountsTable(connection);
         await CreateTransfersTable(connection);
+        await SeedData(connection);
 
         Console.WriteLine("Database migration completed.");
     }
@@ -112,5 +113,47 @@ public static class InitialMigration
 
         await using var cmd = new SqlCommand(sql, connection);
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    private static async Task SeedData(SqlConnection connection)
+    {
+        var checkSql = "SELECT COUNT(*) FROM CUSTOMERS";
+        await using var checkCmd = new SqlCommand(checkSql, connection);
+        var count = (int)await checkCmd.ExecuteScalarAsync();
+        if (count > 0) return;
+
+        var customer1Id = Guid.NewGuid();
+        var customer2Id = Guid.NewGuid();
+        var customer3Id = Guid.NewGuid();
+
+        var account1Id = Guid.NewGuid();
+        var account2Id = Guid.NewGuid();
+        var account3Id = Guid.NewGuid();
+        var account4Id = Guid.NewGuid();
+
+        var sql = $@"
+            INSERT INTO CUSTOMERS (ID, NAME, SURNAME, CITIZEN_ID, EMAIL, PHONE, IS_ACTIVE)
+            VALUES
+                ('{customer1Id}', N'Ahmet', N'Yılmaz', '12345678901', 'ahmet.yilmaz@email.com', '05301234567', 1),
+                ('{customer2Id}', N'Ayşe', N'Demir', '23456789012', 'ayse.demir@email.com', '05319876543', 1),
+                ('{customer3Id}', N'Mehmet', N'Kaya', '34567890123', 'mehmet.kaya@email.com', '05327654321', 1);
+
+            INSERT INTO ACCOUNTS (ID, CUSTOMER_ID, ACCOUNT_NUMBER, ACCOUNT_TYPE, BALANCE, CURRENCY, IS_ACTIVE)
+            VALUES
+                ('{account1Id}', '{customer1Id}', 'TR100001', 1, 15000.00, 'TRY', 1),
+                ('{account2Id}', '{customer1Id}', 'TR100002', 2, 5000.00, 'USD', 1),
+                ('{account3Id}', '{customer2Id}', 'TR200001', 1, 32000.50, 'TRY', 1),
+                ('{account4Id}', '{customer3Id}', 'TR300001', 1, 8500.75, 'TRY', 1);
+
+            INSERT INTO TRANSFERS (ID, SOURCE_ACCOUNT_ID, DESTINATION_ACCOUNT_ID, AMOUNT, CURRENCY, DESCRIPTION, STATUS)
+            VALUES
+                ('{Guid.NewGuid()}', '{account1Id}', '{account3Id}', 2500.00, 'TRY', N'Kira ödemesi', 'COMPLETED'),
+                ('{Guid.NewGuid()}', '{account3Id}', '{account4Id}', 1000.00, 'TRY', N'Borç ödemesi', 'COMPLETED');
+        ";
+
+        await using var cmd = new SqlCommand(sql, connection);
+        await cmd.ExecuteNonQueryAsync();
+
+        Console.WriteLine("Seed data inserted.");
     }
 }

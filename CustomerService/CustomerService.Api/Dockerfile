@@ -13,7 +13,7 @@ COPY CustomerService/CustomerService.Api/CustomerService.Api.csproj CustomerServ
 RUN dotnet restore CustomerService/CustomerService.Api/CustomerService.Api.csproj
 
 COPY CustomerService/ CustomerService/
-RUN dotnet publish CustomerService/CustomerService.Api/CustomerService.Api.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish CustomerService/CustomerService.Api/CustomerService.Api.csproj -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app

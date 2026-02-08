@@ -1,6 +1,6 @@
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/azure-sql-edge:latest
     container_name: camundaproject-sqlserver
     environment:
       - ACCEPT_EULA=Y
@@ -9,6 +9,12 @@ services:
       - "1433:1433"
     volumes:
       - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: python3 -c "import socket; s=socket.create_connection(('localhost',1433),2); s.close()"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   zeebe:
     image: camunda/zeebe:8.6.5
@@ -58,7 +64,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=CustomerServiceDb;User Id=sa;Password=YourStrong!Password123;TrustServerCertificate=true
     depends_on:
-      - sqlserver
+      sqlserver:
+        condition: service_healthy
 
   bpmservice:
     build:
