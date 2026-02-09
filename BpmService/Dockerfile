@@ -14,4 +14,5 @@ RUN dotnet publish BpmService/BpmService.csproj -c Release -o /app/publish
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
+COPY BpmService/Workflows/ ./Workflows/
 ENTRYPOINT ["dotnet", "BpmService.dll"]

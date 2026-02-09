@@ -40,8 +40,7 @@ public class ProcessController : ControllerBase
     [HttpPost("deploy")]
     public async Task<IActionResult> Deploy([FromQuery] string? fileName)
     {
-        var workflowsDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Workflows");
-        workflowsDir = Path.GetFullPath(workflowsDir);
+        var workflowsDir = Path.Combine(AppContext.BaseDirectory, "Workflows");
 
         if (!Directory.Exists(workflowsDir))
             return NotFound(new { message = $"Workflows klasoru bulunamadi: {workflowsDir}" });
