@@ -1,4 +1,5 @@
 using FluentValidation;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using MediatR;
 using CustomerService.Api.Middleware;
 using CustomerService.Application.Common.Behaviors;
@@ -23,6 +24,14 @@ builder.Services.AddMediatR(cfg =>
 });
 builder.Services.AddValidatorsFromAssembly(typeof(CreateCustomerCommand).Assembly);
 
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddSqlServer(
+        connectionString: builder.Configuration.GetConnectionString("DefaultConnection")!,
+        name: "sqlserver",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: ["db", "ready"]);
+
 var app = builder.Build();
 
 // Migration
@@ -36,6 +45,18 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionMiddleware>();
 app.MapControllers();
+
+// Health Check Endpoints
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false, // liveness — sadece uygulama ayakta mı
+    ResponseWriter = HealthCheckResponseWriter.WriteResponse
+});
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = HealthCheckResponseWriter.WriteResponse
+});
 
 Console.WriteLine(@"
 ====================================================
@@ -76,3 +97,30 @@ Console.WriteLine(@"
 ");
 
 app.Run();
+
+/// <summary>
+/// Health check response'unu JSON formatında yazan yardımcı sınıf.
+/// </summary>
+static class HealthCheckResponseWriter
+{
+    public static async Task WriteResponse(HttpContext context, HealthReport report)
+    {
+        context.Response.ContentType = "application/json";
+
+        var response = new
+        {
+            status = report.Status.ToString(),
+            duration = report.TotalDuration.TotalMilliseconds + "ms",
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds + "ms",
+                exception = e.Value.Exception?.Message,
+                data = e.Value.Data
+            })
+        };
+
+        await context.Response.WriteAsJsonAsync(response);
+    }
+}
