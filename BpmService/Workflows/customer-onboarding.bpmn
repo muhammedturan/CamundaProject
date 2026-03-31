@@ -8,7 +8,7 @@
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="dynamic-rest-handler" />
         <zeebe:taskHeaders>
-          <zeebe:header key="url" value="http://localhost:5100/api/customers/validate" />
+          <zeebe:header key="url" value="http://customerservice:8080/api/customers/validate" />
           <zeebe:header key="method" value="POST" />
         </zeebe:taskHeaders>
       </bpmn:extensionElements>
@@ -24,7 +24,7 @@
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="dynamic-rest-handler" />
         <zeebe:taskHeaders>
-          <zeebe:header key="url" value="http://localhost:5100/api/customers/check-duplicate" />
+          <zeebe:header key="url" value="http://customerservice:8080/api/customers/check-duplicate" />
           <zeebe:header key="method" value="POST" />
           <zeebe:header key="errorCode" value="DUPLICATE_CUSTOMER" />
         </zeebe:taskHeaders>
@@ -46,7 +46,7 @@
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="dynamic-rest-handler" />
         <zeebe:taskHeaders>
-          <zeebe:header key="url" value="http://localhost:5100/api/customers" />
+          <zeebe:header key="url" value="http://customerservice:8080/api/customers" />
           <zeebe:header key="method" value="POST" />
         </zeebe:taskHeaders>
       </bpmn:extensionElements>
@@ -57,7 +57,7 @@
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="dynamic-rest-handler" />
         <zeebe:taskHeaders>
-          <zeebe:header key="url" value="http://localhost:5100/api/customers/send-notification" />
+          <zeebe:header key="url" value="http://customerservice:8080/api/customers/send-notification" />
           <zeebe:header key="method" value="POST" />
         </zeebe:taskHeaders>
       </bpmn:extensionElements>
