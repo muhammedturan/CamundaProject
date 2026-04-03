@@ -29,11 +29,13 @@ public class ProcessController : ControllerBase
 
         var outputVariables = JsonSerializer.Deserialize<JsonElement>(result.Variables);
 
+        var processResult = outputVariables.GetProperty("result");
+
         return Ok(new
         {
             processInstanceKey = result.ProcessInstanceKey,
             processId = request.ProcessId,
-            variables = outputVariables
+            result = processResult
         });
     }
 

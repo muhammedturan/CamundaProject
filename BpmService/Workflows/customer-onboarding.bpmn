@@ -37,9 +37,19 @@
       <bpmn:errorEventDefinition id="ErrorEventDefinition_boundary" errorRef="Error_13dqtmg" />
     </bpmn:boundaryEvent>
     <bpmn:endEvent id="end_invalid" name="Validasyon Basarisiz">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:output source="= {code: 1002, message: &quot;Validation Failed&quot;, data: null}" target="result" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
       <bpmn:incoming>flow_valid_no</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:endEvent id="end_duplicate" name="Duplike Reddedildi">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:output source="= {code: 1001, message: &quot;Duplicate Customer&quot;, data: null}" target="result" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
       <bpmn:incoming>flow_dup_to_end</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:serviceTask id="create-customer" name="Musteri Olustur">
@@ -65,6 +75,11 @@
       <bpmn:outgoing>Flow_011v7d0</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:endEvent id="end_success" name="Onboarding Tamamlandi">
+      <bpmn:extensionElements>
+        <zeebe:ioMapping>
+          <zeebe:output source="= {code: 0, message: &quot;Success&quot;, data: {customerId: customerId}}" target="result" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
       <bpmn:incoming>Flow_011v7d0</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="flow_validate_gw1" sourceRef="validate-customer" targetRef="gw_valid" />
@@ -89,29 +104,19 @@
     </bpmn:intermediateThrowEvent>
     <bpmn:sequenceFlow id="Flow_0l1pksr" sourceRef="Event_1wv9d55" targetRef="validate-customer" />
     <bpmn:sequenceFlow id="Flow_011v7d0" sourceRef="send-welcome" targetRef="end_success" />
-    <bpmn:subProcess id="Activity_19jx7yz">
-      <bpmn:multiInstanceLoopCharacteristics isSequential="true">
-        <bpmn:extensionElements>
-          <zeebe:loopCharacteristics inputCollection="=liste" inputElement="item" />
-        </bpmn:extensionElements>
-      </bpmn:multiInstanceLoopCharacteristics>
-      <bpmn:startEvent id="Event_1ovawo8">
-        <bpmn:outgoing>Flow_0xqyzl7</bpmn:outgoing>
-      </bpmn:startEvent>
-      <bpmn:task id="Activity_1nqlq20">
-        <bpmn:incoming>Flow_0xqyzl7</bpmn:incoming>
-        <bpmn:outgoing>Flow_0ohb6ay</bpmn:outgoing>
-      </bpmn:task>
-      <bpmn:sequenceFlow id="Flow_0xqyzl7" sourceRef="Event_1ovawo8" targetRef="Activity_1nqlq20" />
-      <bpmn:endEvent id="Event_1h8g9qg">
-        <bpmn:incoming>Flow_0ohb6ay</bpmn:incoming>
-      </bpmn:endEvent>
-      <bpmn:sequenceFlow id="Flow_0ohb6ay" sourceRef="Activity_1nqlq20" targetRef="Event_1h8g9qg" />
-    </bpmn:subProcess>
   </bpmn:process>
   <bpmn:error id="Error_13dqtmg" name="DUPLICATE_CUSTOMER" errorCode="DUPLICATE_CUSTOMER" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="customer-onboarding">
+      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
+        <dc:Bounds x="162" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="151" y="138" width="58" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="validate_di" bpmnElement="validate-customer">
+        <dc:Bounds x="330" y="88" width="100" height="80" />
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="gw_valid_di" bpmnElement="gw_valid" isMarkerVisible="true">
         <dc:Bounds x="485" y="103" width="50" height="50" />
         <bpmndi:BPMNLabel>
@@ -136,13 +141,10 @@
       <bpmndi:BPMNShape id="create_di" bpmnElement="create-customer">
         <dc:Bounds x="760" y="88" width="100" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="validate_di" bpmnElement="validate-customer">
-        <dc:Bounds x="330" y="88" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="start_di" bpmnElement="start">
-        <dc:Bounds x="162" y="102" width="36" height="36" />
+      <bpmndi:BPMNShape id="end_success_di" bpmnElement="end_success">
+        <dc:Bounds x="1302" y="110" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="151" y="138" width="58" height="27" />
+          <dc:Bounds x="1290" y="146" width="60" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1wv9d55_di" bpmnElement="Event_1wv9d55">
@@ -151,35 +153,9 @@
           <dc:Bounds x="241" y="145" width="18" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="end_success_di" bpmnElement="end_success">
-        <dc:Bounds x="1302" y="110" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="1290" y="146" width="60" height="27" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="notify_di" bpmnElement="send-welcome">
-        <dc:Bounds x="1110" y="88" width="100" height="80" />
+        <dc:Bounds x="940" y="88" width="100" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Activity_19jx7yz_di" bpmnElement="Activity_19jx7yz" isExpanded="true">
-        <dc:Bounds x="860" y="250" width="350" height="200" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1ovawo8_di" bpmnElement="Event_1ovawo8">
-        <dc:Bounds x="900" y="332" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Activity_1nqlq20_di" bpmnElement="Activity_1nqlq20">
-        <dc:Bounds x="990" y="310" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1h8g9qg_di" bpmnElement="Event_1h8g9qg">
-        <dc:Bounds x="1152" y="332" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_0xqyzl7_di" bpmnElement="Flow_0xqyzl7">
-        <di:waypoint x="936" y="350" />
-        <di:waypoint x="990" y="350" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0ohb6ay_di" bpmnElement="Flow_0ohb6ay">
-        <di:waypoint x="1090" y="350" />
-        <di:waypoint x="1152" y="350" />
-      </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="boundary_dup_di" bpmnElement="boundary_duplicate">
         <dc:Bounds x="632" y="150" width="36" height="36" />
         <bpmndi:BPMNLabel>
@@ -214,22 +190,19 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow8_di" bpmnElement="flow_create_notify">
         <di:waypoint x="860" y="128" />
-        <di:waypoint x="1110" y="128" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0l1pksr_di" bpmnElement="Flow_0l1pksr">
-        <di:waypoint x="266" y="128" />
-        <di:waypoint x="264" y="128" />
-        <di:waypoint x="330" y="128" />
+        <di:waypoint x="940" y="128" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_07rctey_di" bpmnElement="Flow_07rctey">
         <di:waypoint x="198" y="120" />
         <di:waypoint x="232" y="120" />
       </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0l1pksr_di" bpmnElement="Flow_0l1pksr">
+        <di:waypoint x="268" y="120" />
+        <di:waypoint x="330" y="120" />
+      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_011v7d0_di" bpmnElement="Flow_011v7d0">
-        <di:waypoint x="1160" y="88" />
-        <di:waypoint x="1160" y="68" />
-        <di:waypoint x="1320" y="68" />
-        <di:waypoint x="1320" y="110" />
+        <di:waypoint x="1040" y="128" />
+        <di:waypoint x="1302" y="128" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
